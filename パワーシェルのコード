@@ -1,0 +1,45 @@
+# Outlookアプリケーションへの参照を取得
+try {
+    $ol = Get-Object -ComObject Outlook.Application
+}
+catch {
+    Write-Error "Outlookアプリケーションの起動に失敗しました。Outlookが実行中であることを確認してください。"
+    exit
+}
+
+# 現在アクティブなインスペクター（メール作成画面など）を取得
+# Get-Object -ComObject を使う代わりに、現在アクティブなインスペクターを取得します。
+# これにより、ユーザーが「全員に返信」で開いたメール作成画面を対象にできます。
+if ($ol.ActiveInspector -is [Microsoft.Office.Interop.Outlook.MailItem]) {
+    $mail = $ol.ActiveInspector.CurrentItem
+}
+else {
+    Write-Error "現在、Outlookのメール作成画面がアクティブではありません。全員に返信を押してメール作成画面を開いてからスクリプトを実行してください。"
+    exit
+}
+
+# 宛先（To）のメールアドレスを抽出
+# セミコロンで区切られたメールアドレスの文字列を取得し、個々のメールアドレスに分割
+$recipients = $mail.To.Split(';') | ForEach-Object { $_.Trim() }
+
+# @nu.mhi.comを含むメールアドレスのみを抽出
+$filteredRecipients = New-Object System.Collections.ArrayList
+foreach ($recipient in $recipients) {
+    if ($recipient -like "*@nu.mhi.com*") {
+        # 抽出したメールアドレスをArrayListに追加
+        [void]$filteredRecipients.Add($recipient)
+    }
+}
+
+# Outlookのメール宛先欄を空にする
+$mail.To = ""
+
+# メール宛先欄に抽出したメールアドレスを貼り付ける
+# ArrayListの要素をセミコロンで結合して文字列として設定
+$mail.To = $filteredRecipients -join ";"
+
+# CC欄は変更しない場合、以下の行は不要です。
+# 必要であればCC欄も同様に操作できます。
+# $mail.CC = "" # 例：CC欄を空にする
+
+Write-Host "宛先アドレスの調整が完了しました。"
